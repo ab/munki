@@ -516,6 +516,9 @@ def main():
                  'packages.')
     p.add_option('--munkipkgsonly', action='store_true',
                  help='Only check/install Munki packages, skip Apple SUS.')
+    p.add_option('--networkwait', type='int', default=60,
+                 help='Seconds to wait for network in '
+                 'checkandinstallatstartup mode')
     p.add_option('--version', '-V', action='store_true',
                  help='Print the version of the munki tools and exit.')
 
@@ -569,14 +572,19 @@ def main():
                     runtype = 'checkandinstallatstartup'
                     options.installonly = False
                     options.auto = True
+
                     # HACK: sometimes this runs before the network is up.
-                    # we'll attempt to wait up to 60 seconds for the network
-                    # interfaces to come up before continuing
-                    munkicommon.display_status_minor('Waiting for network...')
-                    for dummy_i in range(60):
-                        if networkUp():
-                            break
-                        time.sleep(1)
+                    # we'll attempt to wait up to NetworkWaitSeconds
+                    # (default 60 seconds) for the network interfaces to come
+                    # up before continuing
+                    network_wait = (munkicommon.pref('NetworkWaitSeconds') or
+                                    options.networkwait)
+                    if network_wait > 0:
+                        munkicommon.display_status_minor('Waiting for network...')
+                        for _ in range(network_wait):
+                            if networkUp():
+                                break
+                            time.sleep(1)
                 else:
                     # delete triggerfile if _not_ checkandinstallatstartup
                     os.unlink(filename)
